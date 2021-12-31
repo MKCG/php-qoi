@@ -87,11 +87,11 @@ class InMemoryWriter implements Writer
 
     public function writeDiff(int $vr, int $vg, int $vb): void
     {
-        $this->output[$this->position++] = OpCode::DIFF->value | (($vr + 2) << 4) | (($vg + 2) << 2) | ($vb + 2);        
+        $this->output[$this->position++] = OpCode::DIFF->value | (($vr + 2) << 4) | (($vg + 2) << 2) | ($vb + 2);
     }
 
     public function writeLuma(int $vg, int $vgR, int $vgB): void
-    {        
+    {
         $this->output[$this->position++] = OpCode::LUMA->value | ($vg + 32);
         $this->output[$this->position++] = ($vgR + 8) << 4 | ($vgB + 8);
     }

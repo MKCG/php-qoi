@@ -1,11 +1,10 @@
 # QOI encoder / decoder
 
-[QOI Image]((https://github.com/phoboslab/qoi)) encoder and decoder written in pure PHP
+[QOI Image]((https://github.com/phoboslab/qoi)) encoder and decoder written in pure PHP.
 
-## Performance
 
-The `StreamWriter` can encode at about 1MiB/s
-The `InMemoryWriter` can encode at about 5MiB/s
+It can encode up to 5 MiB/s
+
 
 ## Usage
 

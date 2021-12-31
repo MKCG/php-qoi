@@ -31,11 +31,17 @@ use MKCG\Image\QOI\OpCode;
 
 class StreamWriter implements Writer
 {
+    private const BUFFER_SIZE = 1024;
+
     private int $written = 0;
+    private int $position = 0;
+    private \FFI\CData $buffer;
 
     public function __construct(
         private $stream,
-    ) { }
+    ) {
+        $this->buffer = \FFI::new("unsigned char[" . static::BUFFER_SIZE . "]");
+    }
 
     public function countWritten(): int
     {
@@ -44,80 +50,92 @@ class StreamWriter implements Writer
 
     public function writeHeader(ImageDescriptor $descriptor): void
     {
-        fwrite($this->stream, pack('C', ord('q')), 1);
-        fwrite($this->stream, pack('C', ord('o')), 1);
-        fwrite($this->stream, pack('C', ord('i')), 1);
-        fwrite($this->stream, pack('C', ord('f')), 1);
+        $this->buffer[$this->position++] = ord('q');
+        $this->buffer[$this->position++] = ord('o');
+        $this->buffer[$this->position++] = ord('i');
+        $this->buffer[$this->position++] = ord('f');
 
-        fwrite($this->stream, pack('C', ($descriptor->width >> 24) & 0xFF), 1);
-        fwrite($this->stream, pack('C', ($descriptor->width >> 16) & 0xFF), 1);
-        fwrite($this->stream, pack('C', ($descriptor->width >> 8) & 0xFF), 1);
-        fwrite($this->stream, pack('C', $descriptor->width & 0xFF), 1);
+        $this->buffer[$this->position++] = ($descriptor->width >> 24) & 0xFF;
+        $this->buffer[$this->position++] = ($descriptor->width >> 16) & 0xFF;
+        $this->buffer[$this->position++] = ($descriptor->width >> 8) & 0xFF;
+        $this->buffer[$this->position++] = $descriptor->width & 0xFF;
 
-        fwrite($this->stream, pack('C', ($descriptor->height >> 24) & 0xFF), 1);
-        fwrite($this->stream, pack('C', ($descriptor->height >> 16) & 0xFF), 1);
-        fwrite($this->stream, pack('C', ($descriptor->height >> 8) & 0xFF), 1);
-        fwrite($this->stream, pack('C', $descriptor->height & 0xFF), 1);
+        $this->buffer[$this->position++] = ($descriptor->height >> 24) & 0xFF;
+        $this->buffer[$this->position++] = ($descriptor->height >> 16) & 0xFF;
+        $this->buffer[$this->position++] = ($descriptor->height >> 8) & 0xFF;
+        $this->buffer[$this->position++] = $descriptor->height & 0xFF;
 
-        fwrite($this->stream, pack('C', $descriptor->channels & 0xFF), 1);
-        fwrite($this->stream, pack('C', $descriptor->colorspace->value & 0xFF), 1);
-        $this->written += 14;
+        $this->buffer[$this->position++] = $descriptor->channels & 0xFF;
+        $this->buffer[$this->position++] = $descriptor->colorspace->value & 0xFF;
     }
 
     public function writeTail(): void
     {
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x00), 1);
-        fwrite($this->stream, pack('C', 0x01), 1);
-        $this->written += 8;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x00;
+        $this->buffer[$this->position++] = 0x01;
+
+        $this->flush(true);
+    }
+
+    private function flush(bool $force = false): void
+    {
+        if ($this->position + 20 < static::BUFFER_SIZE && $force === false) {
+            return;
+        }
+
+        fwrite($this->stream, \FFI::string($this->buffer, $this->position), $this->position);
+
+        $this->written += $this->position;
+        $this->position = 0;
     }
 
     public function writeRun(int $run): void
     {
-        fwrite($this->stream, pack('C', OpCode::RUN->value | ($run - 1)), 1);
-        $this->written++;
+        $this->buffer[$this->position++] = OpCode::RUN->value | ($run - 1);
+        $this->flush();
     }
 
     public function writeDiff(int $vr, int $vg, int $vb): void
     {
-        fwrite($this->stream, pack('C', OpCode::DIFF->value | (($vr + 2) << 4) | (($vg + 2) << 2) | ($vb + 2)), 1);
-        $this->written++;
+        $this->buffer[$this->position++] = OpCode::DIFF->value | (($vr + 2) << 4) | (($vg + 2) << 2) | ($vb + 2);
+        $this->flush();
     }
 
     public function writeLuma(int $vg, int $vgR, int $vgB): void
-    {        
-        fwrite($this->stream, pack('C', OpCode::LUMA->value | ($vg + 32)), 1);
-        fwrite($this->stream, pack('C', ($vgR + 8) << 4 | ($vgB + 8)), 1);
-        $this->written += 2;
+    {
+        $this->buffer[$this->position++] = OpCode::LUMA->value | ($vg + 32);
+        $this->buffer[$this->position++] = ($vgR + 8) << 4 | ($vgB + 8);
+        $this->flush();
     }
 
     public function writeIndex(int $index): void
     {
-        fwrite($this->stream, pack('C', OpCode::INDEX->value | $index), 1);
-        $this->written++;
+        $this->buffer[$this->position++] = OpCode::INDEX->value | $index;
+        $this->flush();
     }
 
     public function writeRGB(array $px): void
     {
-        fwrite($this->stream, pack('C', OpCode::RGB->value), 1);
-        fwrite($this->stream, pack('C', $px[0]), 1);
-        fwrite($this->stream, pack('C', $px[1]), 1);
-        fwrite($this->stream, pack('C', $px[2]), 1);
-        $this->written += 4;
+        $this->buffer[$this->position++] = OpCode::RGB->value;
+        $this->buffer[$this->position++] = $px[0];
+        $this->buffer[$this->position++] = $px[1];
+        $this->buffer[$this->position++] = $px[2];
+        $this->flush();
     }
 
     public function writeRGBA(array $px): void
     {
-        fwrite($this->stream, pack('C', OpCode::RGBA->value), 1);
-        fwrite($this->stream, pack('C', $px[0]), 1);
-        fwrite($this->stream, pack('C', $px[1]), 1);
-        fwrite($this->stream, pack('C', $px[2]), 1);
-        fwrite($this->stream, pack('C', $px[3]), 1);
-        $this->written += 5;
+        $this->buffer[$this->position++] = OpCode::RGBA->value;
+        $this->buffer[$this->position++] = $px[0];
+        $this->buffer[$this->position++] = $px[1];
+        $this->buffer[$this->position++] = $px[2];
+        $this->buffer[$this->position++] = $px[3];
+        $this->flush();
     }
 }
