@@ -33,7 +33,7 @@ class Dynamic
     public static function loadFromFile(string $filepath): ?WriterContext
     {
         $fallbacks = [
-            // static::useImagick(...),
+            static::useImagick(...),
             static::useGdImage(...)
         ];
 
