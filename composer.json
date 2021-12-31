@@ -1,0 +1,20 @@
+{
+    "name": "mkcg/qoi-php",
+    "description": "QOI image encoder and decoder written in pure PHP",
+    "keywords": ["qoi", "encoder", "decoder", "image"],
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Kévin Masseix",
+            "email": "masseix.kevin@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "suggests": {
+        "ext-gd": "Required to convert images using gd",
+        "ext-imagick": "Required to convert images using imagick"
+    }
+}
