@@ -12,7 +12,7 @@ Convert a PNG file using a stream :
 ---
 
 ```php
-use MKCG\Image\QOI\Encoder;
+use MKCG\Image\QOI\Codec;
 use MKCG\Image\QOI\Writer\StreamWriter;
 use MKCG\Image\QOI\Writer\Driver\Dynamic;
 
@@ -26,7 +26,7 @@ if ($context) {
 
     if ($outputFile) {
         $writer = new StreamWriter($outputFile);
-        Encoder::encode($context->iterator, $context->descriptor, $writer);
+        Codec::encode($context->iterator, $context->descriptor, $writer);
         fclose($outputFile);
     }
 }
@@ -36,7 +36,7 @@ Convert a PNG file in-memory :
 ---
 
 ```php
-use MKCG\Image\QOI\Encoder;
+use MKCG\Image\QOI\Codec;
 use MKCG\Image\QOI\Writer\InMemoryWriterFactory;
 use MKCG\Image\QOI\Writer\Driver\Dynamic;
 
@@ -50,7 +50,7 @@ if ($context) {
 
     if ($outputFile) {
         $writer = (new Writer\InMemoryWriterFactory)->createWriter($context->descriptor);
-        Encoder::encode($context->iterator, $context->descriptor, $writer);
+        Codec::encode($context->iterator, $context->descriptor, $writer);
         fwrite($outputFile, (string) $writer, $writer->countWritten());
         fclose($outputFile);
     }
@@ -61,7 +61,7 @@ Create an image from scratch :
 ---
 
 ```php
-use MKCG\Image\QOI\Encoder;
+use MKCG\Image\QOI\Codec;
 use MKCG\Image\QOI\Colorspace;
 use MKCG\Image\QOI\ImageDescriptor;
 use MKCG\Image\QOI\Writer\StreamWriter;
@@ -87,7 +87,7 @@ $outputFile = fopen($outputFilepath, 'w');
 
 if ($outputFile) {
     $writer = new StreamWriter($outputFile);
-    Encoder::encode($context->iterator, $context->descriptor, $writer);
+    Codec::encode($context->iterator, $context->descriptor, $writer);
     fclose($outputFile);
 }
 
