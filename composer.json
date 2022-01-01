@@ -17,5 +17,10 @@
     "suggests": {
         "ext-gd": "Required to convert images using gd",
         "ext-imagick": "Required to convert images using imagick"
+    },
+    "autoload": {
+        "psr-4": {
+            "MKCG\\Image\\QOI\\": "src/"
+        }
     }
 }
