@@ -3,7 +3,7 @@
 [QOI Image]((https://github.com/phoboslab/qoi)) encoder and decoder written in pure PHP.
 
 
-It can encode up to 5 MiB/s
+It can encode and decode a few megabytes per second with a small memory footprint.
 
 
 ## Usage
@@ -13,8 +13,8 @@ Convert a PNG file using a stream :
 
 ```php
 use MKCG\Image\QOI\Codec;
+use MKCG\Image\QOI\Driver\Dynamic;
 use MKCG\Image\QOI\Writer\StreamWriter;
-use MKCG\Image\QOI\Writer\Driver\Dynamic;
 
 $inputFilepath  = "/foobar.png";
 $outputFilepath = "/foobar.qoi";
@@ -37,8 +37,8 @@ Convert a PNG file in-memory :
 
 ```php
 use MKCG\Image\QOI\Codec;
+use MKCG\Image\QOI\Driver\Dynamic;
 use MKCG\Image\QOI\Writer\InMemoryWriterFactory;
-use MKCG\Image\QOI\Writer\Driver\Dynamic;
 
 $inputFilepath  = "/foobar.png";
 $outputFilepath = "/foobar.qoi";
@@ -98,16 +98,62 @@ if ($outputFile) {
 ```php
 use MKCG\Image\QOI\Codec;
 
+function createFileIterator($filepath): \Generator
+{
+    $bytes = file_get_contents($filepath);
+
+    for ($i = 0; $i < strlen($bytes); $i++) {
+        yield $bytes[$i];
+    }
+};
+
+$filepath = "/input.qoi";
+
 $reader = Codec::decode(createFileIterator($filepath));
+
+$width    = $reader->descriptor->width;
+$height   = $reader->descriptor->height;
+$channels = $reader->descriptor->channels;
+
 $pixels = iterator_to_array($reader->iterator);
+```
+
+### Convert a QOI image
+
+```php
+use MKCG\Image\QOI\Codec;
+use MKCG\Image\QOI\Format;
+use MKCG\Image\QOI\Driver\Dynamic;
+
+function createFileIterator($filepath): \Generator
+{
+    $handler = fopen($filepath, 'r');
+
+    while (($bytes = fread($handler, 8192)) !== false) {
+        for ($i = 0; $i < strlen($bytes); $i++) {
+            yield $bytes[$i];
+        }
+    }
+
+    fclose($handler);
+};
+
+$filepath = "/input.qoi";
+
+$reader = Codec::decode(createFileIterator($filepath));
+Dynamic::convertInto($reader, "/output.png", Format::PNG);
+
+// Important: you need to create another reader
+$reader = Codec::decode(createFileIterator($filepath));
+Dynamic::convertInto($reader, "/output.jpg", Format::JPG);
 ```
 
 ## Drivers
 
 | Name    | Requirements                  | Description                                                  |
 | ------- | ----------------------------- | ------------------------------------------------------------ |
-| Dynamic | one of : ext-imagick, ext-gd  | Load the image using the appropriate PHP image extension     |
-| Gd      | ext-gd                        |                                                              |
+| Dynamic | one of : ext-imagick, ext-gd  | Manipulates images using the appropriate PHP image extension |
+| Gd      | ext-gd                        | gd use only 7 bits for the alpha channel instead of 8        |
 | Imagick | ext-imagick                   | imagick must have been compiled against ImageMagick >= 6.4.0 |
 
 

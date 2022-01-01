@@ -24,6 +24,11 @@
  * SOFTWARE.
  */
 
-namespace MKCG\Image\QOI\Writer\Driver;
+namespace MKCG\Image\QOI;
 
-class DriverException extends \Exception;
+enum Format: string {
+    case AVIF = "avif";
+    case BMP  = "bmp";
+    case JPG  = "jpg";
+    case PNG  = "png";
+};

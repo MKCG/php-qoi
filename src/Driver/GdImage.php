@@ -24,10 +24,12 @@
  * SOFTWARE.
  */
 
-namespace MKCG\Image\QOI\Writer\Driver;
+namespace MKCG\Image\QOI\Driver;
 
 use MKCG\Image\QOI\ImageDescriptor;
 use MKCG\Image\QOI\Colorspace;
+use MKCG\Image\QOI\Context;
+use MKCG\Image\QOI\Format;
 
 class GdImage
 {
@@ -97,5 +99,44 @@ class GdImage
                 yield $px;
             }
         }
+    }
+
+    public static function convertInto(Context $reader, string $filepath, Format $format): void
+    {
+        $image = imagecreatetruecolor($reader->descriptor->width, $reader->descriptor->height);
+
+        if (!$image) {
+            throw new \Exception();
+        }
+
+        imagecolorallocate($image, 0, 0, 0);
+
+        $x = 0;
+        $y = 0;
+
+        foreach ($reader->iterator as $pixel) {
+            $color = match ($reader->descriptor->channels) {
+                // @see: https://github.com/php/php-src/blob/2f85d79165ad5744cc411194c159f1ce43e1ec0a/ext/gd/libgd/gd_png.c#L265
+                4 => imagecolorallocatealpha($image, $pixel[0], $pixel[1], $pixel[2], 127 - ($pixel[3] >> 1)),
+                default => imagecolorallocate($image, $pixel[0], $pixel[1], $pixel[2]),
+            };
+
+            imagesetpixel($image, $x, $y, $color);
+
+            $x++;
+
+            if ($x == $reader->descriptor->width) {
+                $y++;
+                $x = 0;
+            }
+        }
+
+        $saved = match ($format) {
+            Format::AVIF => imageavif($image, $filepath),
+            Format::BMP  => imagebmp($image, $filepath),
+            Format::JPG  => imagejpeg($image, $filepath),
+            Format::PNG  => imagepng($image, $filepath),
+            default => throw new \Exception()
+        };
     }
 }

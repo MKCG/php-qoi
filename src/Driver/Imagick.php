@@ -24,10 +24,12 @@
  * SOFTWARE.
  */
 
-namespace MKCG\Image\QOI\Writer\Driver;
+namespace MKCG\Image\QOI\Driver;
 
 use MKCG\Image\QOI\ImageDescriptor;
 use MKCG\Image\QOI\Colorspace;
+use MKCG\Image\QOI\Context;
+use MKCG\Image\QOI\Format;
 
 class Imagick
 {
@@ -98,5 +100,51 @@ class Imagick
 
             $iterator->syncIterator();
         }
+    }
+
+    public static function convertInto(Context $reader, string $filepath, Format $format): void
+    {
+        $image = new \Imagick;
+
+        $image->newImage(
+            $reader->descriptor->width,
+            $reader->descriptor->height,
+            new \ImagickPixel('black'),
+            $format->value
+        );
+
+        $image->setImageAlphaChannel(
+            match ($reader->descriptor->channels) {
+                4 => \Imagick::ALPHACHANNEL_ACTIVATE,
+                default => \Imagick::ALPHACHANNEL_DEACTIVATE,
+            }
+        );
+
+        $pixelIterator = $image->getPixelIterator();
+
+        foreach ($pixelIterator as $row => $rowPixels) {
+            foreach ($rowPixels as $col => $pixel) {
+                $px = $reader->iterator->current();
+
+                if ($px === null) {
+                    throw new \Exception();
+                }
+
+                $pixel->setColorValue(\Imagick::COLOR_RED,   $px[0] / 255);
+                $pixel->setColorValue(\Imagick::COLOR_GREEN, $px[1] / 255);
+                $pixel->setColorValue(\Imagick::COLOR_BLUE,  $px[2] / 255);
+                $pixel->setColorValue(\Imagick::COLOR_ALPHA, $px[3] / 255);
+
+                $reader->iterator->next();
+            }
+
+            $pixelIterator->syncIterator();
+        }
+
+        if ($reader->iterator->current() !== null) {
+            throw new \Exception();
+        }
+
+        $image->writeImage($filepath);
     }
 }

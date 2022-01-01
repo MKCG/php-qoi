@@ -24,36 +24,37 @@
  * SOFTWARE.
  */
 
-namespace MKCG\Image\QOI\Writer\Driver;
+namespace MKCG\Image\QOI\Driver;
 
 use MKCG\Image\QOI\Context;
+use MKCG\Image\QOI\Format;
 
 class Dynamic
 {
     public static function loadFromFile(string $filepath): ?Context
     {
-        $fallbacks = [
-            static::useImagick(...),
-            static::useGdImage(...)
-        ];
+        $function = match(true) {
+            class_exists("\Imagick") => static::useImagick(...),
+            class_exists("\GdImage") => static::useGdImage(...),
+            default => throw new \Exception()
+        };
 
-        foreach ($fallbacks as $fallback) {
-            $output = $fallback($filepath);
+        return $function($filepath);
+    }
 
-            if ($output !== null) {
-                return $output;
-            }
-        }
+    public static function convertInto(Context $reader, string $filepath, Format $format): void
+    {
+        $function = match(true) {
+            class_exists("\Imagick") => Imagick::convertInto(...),
+            class_exists("\GdImage") => GdImage::convertInto(...),
+            default => throw new \Exception(),
+        };
 
-        return null;
+        $function($reader, $filepath, $format);
     }
 
     private static function useGdImage(string $filepath): ?Context
     {
-        if (!class_exists("\GdImage")) {
-            return null;
-        }
-
         try {
             $image = GdImage::loadFromFile($filepath);
             $descriptor = GdImage::createImageDescriptor($image, $filepath);
@@ -68,10 +69,6 @@ class Dynamic
 
     private static function useImagick(string $filepath): ?Context
     {
-        if (!class_exists("\Imagick")) {
-            return null;
-        }
-
         try {
             $image = Imagick::loadFromFile($filepath);
             $descriptor = Imagick::createImageDescriptor($image, $filepath);
