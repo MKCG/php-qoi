@@ -63,9 +63,9 @@ Create an image from scratch :
 ```php
 use MKCG\Image\QOI\Codec;
 use MKCG\Image\QOI\Colorspace;
+use MKCG\Image\QOI\Context;
 use MKCG\Image\QOI\ImageDescriptor;
 use MKCG\Image\QOI\Writer\StreamWriter;
-use MKCG\Image\QOI\Writer\WriterContext;
 
 $outputFilepath = "/white.qoi";
 
@@ -73,7 +73,7 @@ $width    = 800;
 $height   = 600;
 $channels = 3;
 
-$context = new WriterContext(
+$context = new Context(
     new ImageDescriptor($width, $height, $channels, Colorspace::SRGB),
     (function() use ($width, $height, $channels) {
         $size = $width * $height * $channels;

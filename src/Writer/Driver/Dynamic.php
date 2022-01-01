@@ -26,11 +26,11 @@
 
 namespace MKCG\Image\QOI\Writer\Driver;
 
-use MKCG\Image\QOI\Writer\WriterContext;
+use MKCG\Image\QOI\Context;
 
 class Dynamic
 {
-    public static function loadFromFile(string $filepath): ?WriterContext
+    public static function loadFromFile(string $filepath): ?Context
     {
         $fallbacks = [
             static::useImagick(...),
@@ -48,7 +48,7 @@ class Dynamic
         return null;
     }
 
-    private static function useGdImage(string $filepath): ?WriterContext
+    private static function useGdImage(string $filepath): ?Context
     {
         if (!class_exists("\GdImage")) {
             return null;
@@ -63,10 +63,10 @@ class Dynamic
 
         $iterator = GdImage::createIterator($image, $descriptor);
 
-        return new WriterContext($descriptor, $iterator);
+        return new Context($descriptor, $iterator);
     }
 
-    private static function useImagick(string $filepath): ?WriterContext
+    private static function useImagick(string $filepath): ?Context
     {
         if (!class_exists("\Imagick")) {
             return null;
@@ -81,6 +81,6 @@ class Dynamic
 
         $iterator = Imagick::createIterator($image, $descriptor);
 
-        return new WriterContext($descriptor, $iterator);
+        return new Context($descriptor, $iterator);
     }
 }

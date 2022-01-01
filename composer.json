@@ -11,7 +11,8 @@
         }
     ],
     "require": {
-        "php": ">=8.1"
+        "php": "^8.1",
+        "ext-ffi": "^8.1"
     },
     "suggests": {
         "ext-gd": "Required to convert images using gd",

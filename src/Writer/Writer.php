@@ -32,19 +32,5 @@ interface Writer
 {
     public function countWritten(): int;
 
-    public function writeHeader(ImageDescriptor $descriptor): void;
-
-    public function writeTail(): void;
-
-    public function writeRun(int $run): void;
-
-    public function writeDiff(int $vr, int $vg, int $vb): void;
-
-    public function writeLuma(int $vg, int $vgR, int $vgB): void;
-
-    public function writeIndex(int $index): void;
-
-    public function writeRGB(array $px): void;
-
-    public function writeRGBA(array $px): void;
+    public function writeBytes(\FFI\CData $bytes, int $length): void;
 }
