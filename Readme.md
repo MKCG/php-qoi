@@ -93,6 +93,15 @@ if ($outputFile) {
 
 ```
 
+### Decode a QOI image
+
+```php
+use MKCG\Image\QOI\Codec;
+
+$reader = Codec::decode(createFileIterator($filepath));
+$pixels = iterator_to_array($reader->iterator);
+```
+
 ## Drivers
 
 | Name    | Requirements                  | Description                                                  |

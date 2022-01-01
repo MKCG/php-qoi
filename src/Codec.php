@@ -142,16 +142,17 @@ final class Codec
     public static function decode(iterable $bytes): Context
     {
         $header = array_fill(0, 14, 0x00);
+        $read = 0;
 
         foreach ($bytes as $i => $byte) {
             $header[$i] = $byte;
 
-            if ($i == 14) {
+            if (++$read == 14) {
                 break;
             }
         }
 
-        if ($i !== 14
+        if ($read !== 14
             || $header[0] != 'q'
             || $header[1] != 'o'
             || $header[2] != 'i'
@@ -198,8 +199,10 @@ final class Codec
                 }
             })($bytes),
             default => (function($bytes) {
-                foreach ($bytes as $byte) {
-                    yield ord($byte);
+                $count = count($bytes);
+
+                for ($i = 14; $i < $count; $i++) {
+                    yield ord($bytes[$i]);
                 }
             })($bytes),
         };
@@ -215,11 +218,11 @@ final class Codec
 
             while ($decoded < $length) {
                 if ($run > 0) {
+                    $run--;
                     $decoded++;
 
                     yield $pixel;
                 } else {
-                    $bytes->next();
                     $byte = $bytes->current();
 
                     if ($byte === OpCode::RGB->value) {
@@ -286,7 +289,11 @@ final class Codec
                         $run = ($byte & 0x3f) + 1;
                     }
 
+                    $bytes->next();
                     $prev = $pixel;
+
+                    $indexPos = static::indexPos($pixel);
+                    $indexes[$indexPos] = $pixel;
                 }
             }
         };
