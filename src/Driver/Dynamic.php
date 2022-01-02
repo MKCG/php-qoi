@@ -34,6 +34,7 @@ class Dynamic
     public static function loadFromFile(string $filepath): ?Context
     {
         $function = match(true) {
+            function_exists('vips_image_new_from_file') => static::useVips(...),
             class_exists("\Imagick") => static::useImagick(...),
             class_exists("\GdImage") => static::useGdImage(...),
             default => throw new \Exception()
@@ -77,6 +78,20 @@ class Dynamic
         }
 
         $iterator = Imagick::createIterator($image, $descriptor);
+
+        return new Context($descriptor, $iterator);
+    }
+
+    private static function useVips(string $filepath): ?Context
+    {
+        try {
+            $image = Vips::loadFromFile($filepath);
+            $descriptor = Vips::createImageDescriptor($image, $filepath);
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        $iterator = Vips::createIterator($image, $descriptor);
 
         return new Context($descriptor, $iterator);
     }

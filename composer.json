@@ -16,7 +16,8 @@
     },
     "suggests": {
         "ext-gd": "Required to convert images using gd",
-        "ext-imagick": "Required to convert images using imagick"
+        "ext-imagick": "Required to convert images using imagick",
+        "ext-vips": "Required to convert images using vips"
     },
     "autoload": {
         "psr-4": {

@@ -153,11 +153,12 @@ Dynamic::convertInto($reader, "/output.jpg", Format::JPG);
 
 ## Drivers
 
-| Name    | Requirements                  | Description                                                  |
-| ------- | ----------------------------- | ------------------------------------------------------------ |
-| Dynamic | one of : ext-imagick, ext-gd  | Manipulates images using the appropriate PHP image extension |
-| Gd      | ext-gd                        | gd use only 7 bits for the alpha channel instead of 8        |
-| Imagick | ext-imagick                   | imagick must have been compiled against ImageMagick >= 6.4.0 |
+| Name    | Requirements            | Description                                                  |
+| ------- | ----------------------- | ------------------------------------------------------------ |
+| Dynamic | at least one of the ext | Manipulates images using the appropriate PHP image extension |
+| Gd      | ext-gd                  | gd use only 7 bits for the alpha channel instead of 8        |
+| Imagick | ext-imagick             | imagick must have been compiled against ImageMagick >= 6.4.0 |
+| Vips    | ext-vips                |                                                              |
 
 
 ## Supported images format
