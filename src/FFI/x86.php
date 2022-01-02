@@ -38,8 +38,8 @@ class x86 extends Codec
         $binary = str_replace("/", DIRECTORY_SEPARATOR, __DIR__ . "/bin/x86_64.so");
         $library = \FFI::cdef(file_get_contents($header), $binary);
 
-        $inputMaxSize = 3 * 4 * 1024;
-        $outputMaxSize = ($inputMaxSize * ($descriptor->channels + 1)) + 8;
+        $inputMaxSize = $descriptor->channels * 1024;
+        $outputMaxSize = (($descriptor->channels + 1) * 1024) + 8;
 
         $input   = \FFI::new("unsigned char[${inputMaxSize}]");
         $output  = \FFI::new("unsigned char[${outputMaxSize}]");
