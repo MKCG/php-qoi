@@ -109,7 +109,7 @@ class Imagick
         $image->newImage(
             $reader->descriptor->width,
             $reader->descriptor->height,
-            new \ImagickPixel('black'),
+            new \ImagickPixel('white'),
             $format->value
         );
 
@@ -127,7 +127,7 @@ class Imagick
                 $px = $reader->iterator->current();
 
                 if ($px === null) {
-                    throw new \Exception();
+                    throw new DriverException();
                 }
 
                 $pixel->setColorValue(\Imagick::COLOR_RED,   $px[0] / 255);
@@ -142,7 +142,7 @@ class Imagick
         }
 
         if ($reader->iterator->current() !== null) {
-            throw new \Exception();
+            throw new DriverException();
         }
 
         $image->writeImage($filepath);

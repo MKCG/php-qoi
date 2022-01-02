@@ -106,10 +106,13 @@ class GdImage
         $image = imagecreatetruecolor($reader->descriptor->width, $reader->descriptor->height);
 
         if (!$image) {
-            throw new \Exception();
+            throw new DriverException();
         }
 
-        imagecolorallocate($image, 0, 0, 0);
+        match ($reader->descriptor->channels) {
+            4 => imagecolorallocatealpha($image, 0, 0, 0, 127),
+            default => imagecolorallocate($image, 0, 0, 0)
+        };
 
         $x = 0;
         $y = 0;
@@ -136,7 +139,7 @@ class GdImage
             Format::BMP  => imagebmp($image, $filepath),
             Format::JPG  => imagejpeg($image, $filepath),
             Format::PNG  => imagepng($image, $filepath),
-            default => throw new \Exception()
+            default => throw new DriverException()
         };
     }
 }

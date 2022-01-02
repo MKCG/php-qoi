@@ -36,7 +36,7 @@ class Vips
     public static function loadFromFile(string $filepath): mixed
     {
         return match(($result = vips_image_new_from_file($filepath, []))) {
-            -1 => throw new \Exception(),
+            -1 => throw new DriverException(),
             default => $result['out']
         };
     }
@@ -58,31 +58,42 @@ class Vips
 
     public static function createIterator($image, ImageDescriptor $descriptor): iterable
     {
-        $bin = vips_image_write_to_memory($image) or throw new \Exception();
-        $length = strlen($bin);
-
         $bands = static::get($image, 'bands');
 
-        if ($bands === 1) {
-            for ($i = 0; $i < $length; $i++) {
-                $byte = ord($bin[$i]);
-                $alpha = $descriptor->channels === 4 ? $byte : 255;
-                yield [ $byte, $byte, $byte, $alpha ];
-            }
-        } else {
-            if ($length !== $descriptor->countBytes()) {
-                throw new \Exception();
-            }
+        // each chunk use no more than 1 MB
+        $lines = max(1, (int) floor((1024 * 1024) / $descriptor->width / $bands));
 
-            for ($i = 0; $i < $length; $i += $descriptor->channels) {
-                $pixel = [
-                    ord($bin[$i]),
-                    ord($bin[$i + 1]),
-                    ord($bin[$i + 2]),
-                    $descriptor->channels == 4 ? ord($bin[$i + 3]) : 255,
-                ];
+        for ($y = 0; $y < $descriptor->height; $y += $lines) {
+            $height = match($y + $lines > $descriptor->height) {
+                true => $descriptor->height - $y,
+                default => $lines,
+            };
 
-                yield $pixel;
+            $chunk = match (($result = vips_call('crop', $image, 0, $y, $descriptor->width, $height))) {
+                -1 => throw new DriverException(),
+                default => $result['out']
+            };
+
+            $bin = vips_image_write_to_memory($chunk) or throw new DriverException();
+            $length = strlen($bin);
+
+            if ($bands === 1) {
+                for ($i = 0; $i < $length; $i++) {
+                    $byte = ord($bin[$i]);
+                    $alpha = $descriptor->channels === 4 ? $byte : 255;
+                    yield [ $byte, $byte, $byte, $alpha ];
+                }
+            } else {
+                for ($i = 0; $i < $length; $i += $descriptor->channels) {
+                    $pixel = [
+                        ord($bin[$i]),
+                        ord($bin[$i + 1]),
+                        ord($bin[$i + 2]),
+                        $descriptor->channels == 4 ? ord($bin[$i + 3]) : 255,
+                    ];
+
+                    yield $pixel;
+                }
             }
         }
     }
@@ -90,7 +101,7 @@ class Vips
     private static function get($image, $name)
     {
         return match(($result = vips_image_get($image, $name))) {
-            -1 => throw new \Exception(),
+            -1 => throw new DriverException(),
             default => $result['out'],
         };
     }

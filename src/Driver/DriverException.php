@@ -26,4 +26,4 @@
 
 namespace MKCG\Image\QOI\Driver;
 
-class DriverException extends \Exception;
+class DriverException extends \Exception {}

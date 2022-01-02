@@ -37,7 +37,7 @@ class Dynamic
             function_exists('vips_image_new_from_file') => static::useVips(...),
             class_exists("\Imagick") => static::useImagick(...),
             class_exists("\GdImage") => static::useGdImage(...),
-            default => throw new \Exception()
+            default => throw new DriverException()
         };
 
         return $function($filepath);
@@ -48,7 +48,7 @@ class Dynamic
         $function = match(true) {
             class_exists("\Imagick") => Imagick::convertInto(...),
             class_exists("\GdImage") => GdImage::convertInto(...),
-            default => throw new \Exception(),
+            default => throw new DriverException(),
         };
 
         $function($reader, $filepath, $format);
@@ -59,7 +59,7 @@ class Dynamic
         try {
             $image = GdImage::loadFromFile($filepath);
             $descriptor = GdImage::createImageDescriptor($image, $filepath);
-        } catch (\Exception $e) {
+        } catch (DriverException $e) {
             return null;
         }
 
@@ -73,7 +73,7 @@ class Dynamic
         try {
             $image = Imagick::loadFromFile($filepath);
             $descriptor = Imagick::createImageDescriptor($image, $filepath);
-        } catch (\Exception $e) {
+        } catch (DriverException $e) {
             return null;
         }
 
@@ -87,7 +87,7 @@ class Dynamic
         try {
             $image = Vips::loadFromFile($filepath);
             $descriptor = Vips::createImageDescriptor($image, $filepath);
-        } catch (\Exception $e) {
+        } catch (DriverException $e) {
             return null;
         }
 
