@@ -6,6 +6,9 @@
 It can encode and decode a few megabytes per second with a small memory footprint.
 
 
+On x86_64 architectures, it will automatically use the [FFI extension](https://www.php.net/manual/en/book.ffi.php) to encode the file using the provided C library.
+
+
 ## Usage
 
 Convert a PNG file using a stream :

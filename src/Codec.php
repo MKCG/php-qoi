@@ -26,15 +26,30 @@
 
 namespace MKCG\Image\QOI;
 
+use MKCG\Image\QOI\FFI\x86;
 use MKCG\Image\QOI\Writer\Writer;
 
-final class Codec
+class Codec
 {
     private const BUFFER_SIZE = 1024;
 
     private int $position = 0;
 
     public static function encode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
+    {
+        $result = shell_exec('uname -p');
+
+        if (is_string($result)) {
+            $result = trim($result);
+        }
+
+        match ($result) {
+            "x86_64" => x86::encode($iterator, $descriptor, $writer),
+            default => static::phpEncode($iterator, $descriptor, $writer),
+        };
+    }
+
+    private static function phpEncode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
     {
         $buffer = \FFI::new("unsigned char[" . static::BUFFER_SIZE . "]");
         $position = 0;
