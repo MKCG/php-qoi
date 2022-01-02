@@ -1,7 +1,7 @@
 {
     "name": "mkcg/qoi-php",
     "description": "QOI image encoder and decoder written in pure PHP",
-    "keywords": ["qoi", "encoder", "decoder", "image"],
+    "keywords": ["qoi", "encoder", "decoder", "image", "ffi"],
     "type": "library",
     "license": "MIT",
     "authors": [
