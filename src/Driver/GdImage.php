@@ -134,7 +134,7 @@ class GdImage
             }
         }
 
-        $saved = match ($format) {
+        match ($format) {
             Format::AVIF => imageavif($image, $filepath),
             Format::BMP  => imagebmp($image, $filepath),
             Format::JPG  => imagejpeg($image, $filepath),

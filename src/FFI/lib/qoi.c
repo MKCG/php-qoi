@@ -54,25 +54,25 @@ SOFTWARE.
 #define QOI_IS_OP_DIFF(vr, vg, vb) (vr > -3 && vr < 2 && vg > -3 && vg < 2 && vb > -3 && vb < 2)
 #define QOI_IS_OP_LUMA(vg, vg_r, vg_b) (vg_r >  -9 && vg_r <  8 && vg   > -33 && vg   < 32 &&  vg_b >  -9 && vg_b <  8)
 
-#define QOI_WRITE_OP_DIFF(output, outputPos, vr, vg, vb) \
-    output[outputPos++] = QOI_OP_DIFF | (vr + 2) << 4 | (vg + 2) << 2 | (vb + 2);
+#define QOI_WRITE_OP_DIFF(output, output_pos, vr, vg, vb) \
+    output[output_pos++] = QOI_OP_DIFF | (vr + 2) << 4 | (vg + 2) << 2 | (vb + 2);
 
-#define QOI_WRITE_OP_LUMA(output, outputPos, vg, vg_r, vg_b) \
-    output[outputPos++] = QOI_OP_LUMA     | (vg   + 32);     \
-    output[outputPos++] = (vg_r + 8) << 4 | (vg_b +  8);
+#define QOI_WRITE_OP_LUMA(output, output_pos, vg, vg_r, vg_b) \
+    output[output_pos++] = QOI_OP_LUMA     | (vg   + 32);     \
+    output[output_pos++] = (vg_r + 8) << 4 | (vg_b +  8);
 
-#define QOI_WRITE_OP_RGB(output, outputPos, px)  \
-    output[outputPos++] = QOI_OP_RGB;            \
-    output[outputPos++] = px.rgba.r;             \
-    output[outputPos++] = px.rgba.g;             \
-    output[outputPos++] = px.rgba.b;
+#define QOI_WRITE_OP_RGB(output, output_pos, px)  \
+    output[output_pos++] = QOI_OP_RGB;            \
+    output[output_pos++] = px.rgba.r;             \
+    output[output_pos++] = px.rgba.g;             \
+    output[output_pos++] = px.rgba.b;
 
-#define QOI_WRITE_OP_RGBA(output, outputPos, px) \
-    output[outputPos++] = QOI_OP_RGBA;           \
-    output[outputPos++] = px.rgba.r;             \
-    output[outputPos++] = px.rgba.g;             \
-    output[outputPos++] = px.rgba.b;             \
-    output[outputPos++] = px.rgba.a;
+#define QOI_WRITE_OP_RGBA(output, output_pos, px) \
+    output[output_pos++] = QOI_OP_RGBA;           \
+    output[output_pos++] = px.rgba.r;             \
+    output[output_pos++] = px.rgba.g;             \
+    output[output_pos++] = px.rgba.b;             \
+    output[output_pos++] = px.rgba.a;
 
 
 void qoi_encode_init(qoi_encoder_t *encoder) {
@@ -110,26 +110,26 @@ void qoi_encode_header(qoi_encoder_t *encoder, unsigned char *output, qoi_desc d
 }
 
 int qoi_encode_chunk(qoi_encoder_t *encoder, const unsigned char *input, int length, unsigned char *output, qoi_desc desc) {
-    qoi_rgba_t px;
+    qoi_rgba_t px = encoder->px_prev;
 
-    int inputPos = 0;
-    int outputPos = 0;
+    int input_pos = 0;
+    int output_pos = 0;
 
-    while (inputPos < length) {
+    while (input_pos < length) {
         if (desc.channels == 4) {
-            px = *(qoi_rgba_t *)(input + inputPos);
+            px = *(qoi_rgba_t *)(input + input_pos);
         }
         else {
-            px.rgba.r = input[inputPos + 0];
-            px.rgba.g = input[inputPos + 1];
-            px.rgba.b = input[inputPos + 2];
+            px.rgba.r = input[input_pos + 0];
+            px.rgba.g = input[input_pos + 1];
+            px.rgba.b = input[input_pos + 2];
         }
 
         if (px.v == encoder->px_prev.v) {
             encoder->run++;
 
             if (encoder->run == 62) {
-                output[outputPos++] = QOI_OP_RUN | (encoder->run - 1);
+                output[output_pos++] = QOI_OP_RUN | (encoder->run - 1);
                 encoder->run = 0;
             }
         }
@@ -137,14 +137,14 @@ int qoi_encode_chunk(qoi_encoder_t *encoder, const unsigned char *input, int len
             int index_pos;
 
             if (encoder->run > 0) {
-                output[outputPos++] = QOI_OP_RUN | (encoder->run - 1);
+                output[output_pos++] = QOI_OP_RUN | (encoder->run - 1);
                 encoder->run = 0;
             }
 
             index_pos = QOI_COLOR_HASH(px) % 64;
 
             if (encoder->index[index_pos].v == px.v) {
-                output[outputPos++] = QOI_OP_INDEX | index_pos;
+                output[output_pos++] = QOI_OP_INDEX | index_pos;
             }
             else {
                 encoder->index[index_pos] = px;
@@ -158,44 +158,44 @@ int qoi_encode_chunk(qoi_encoder_t *encoder, const unsigned char *input, int len
                     signed char vg_b = vb - vg;
 
                     if (QOI_IS_OP_DIFF(vr, vg, vb)) {
-                            QOI_WRITE_OP_DIFF(output, outputPos, vr, vg, vb);
-                        }
+                        QOI_WRITE_OP_DIFF(output, output_pos, vr, vg, vb);
+                    }
                     else if (QOI_IS_OP_LUMA(vg, vg_r, vg_b)) {
-                        QOI_WRITE_OP_LUMA(output, outputPos, vg, vg_r, vg_b);
+                        QOI_WRITE_OP_LUMA(output, output_pos, vg, vg_r, vg_b);
                     }
                     else {
-                        QOI_WRITE_OP_RGB(output, outputPos, px);
+                        QOI_WRITE_OP_RGB(output, output_pos, px);
                     }
                 }
                 else {
-                    QOI_WRITE_OP_RGBA(output, outputPos, px);
+                    QOI_WRITE_OP_RGBA(output, output_pos, px);
                 }
             }
         }
 
-        inputPos += desc.channels;
+        input_pos += desc.channels;
         encoder->px_prev = px;
     }
 
-    return outputPos;
+    return output_pos;
 }
 
 int qoi_encode_tail(qoi_encoder_t *encoder, unsigned char *output) {
-    int outputPos = 0;
+    int output_pos = 0;
 
     if (encoder->run > 0) {
-        output[outputPos++] = QOI_OP_RUN | (encoder->run - 1);
+        output[output_pos++] = QOI_OP_RUN | (encoder->run - 1);
         encoder->run = 0;
     }
 
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 0;
-    output[outputPos++] = 1;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 0;
+    output[output_pos++] = 1;
 
-    return outputPos;
+    return output_pos;
 }

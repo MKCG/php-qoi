@@ -27,19 +27,33 @@
 namespace MKCG\Image\QOI\FFI;
 
 use MKCG\Image\QOI\Codec;
+use MKCG\Image\QOI\Colorspace;
+use MKCG\Image\QOI\Context;
 use MKCG\Image\QOI\ImageDescriptor;
 use MKCG\Image\QOI\Writer\Writer;
 
 class x86 extends Codec
 {
-    public static function encode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
+    private static $library = null;
+
+    public static function init()
     {
+        if (static::$library !== null) {
+            return;
+        }
+
         $header = str_replace("/", DIRECTORY_SEPARATOR, __DIR__ . "/bin/x86_64.h");
         $binary = str_replace("/", DIRECTORY_SEPARATOR, __DIR__ . "/bin/x86_64.so");
-        $library = \FFI::cdef(file_get_contents($header), $binary);
+        static::$library = \FFI::cdef(file_get_contents($header), $binary);
+    }
 
-        $inputMaxSize = $descriptor->channels * 1024;
-        $outputMaxSize = (($descriptor->channels + 1) * 1024) + 8;
+    public static function encode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
+    {
+        static::init();
+        $library = static::$library;
+
+        $inputMaxSize = $descriptor->channels * 65536;
+        $outputMaxSize = (($descriptor->channels + 1) * 65536) + 8;
 
         $input   = \FFI::new("unsigned char[${inputMaxSize}]");
         $output  = \FFI::new("unsigned char[${outputMaxSize}]");
@@ -68,7 +82,7 @@ class x86 extends Codec
                 $input[$inputPos++] = $px[3];
             }
 
-            if ($inputPos >= $inputMaxSize) {
+            if ($inputPos >= $inputMaxSize - 10) {
                 $written = $library->qoi_encode_chunk($ptrEncoder, $input, $inputPos, $output, $desc);
                 $writer->writeBytes($output, $written);
                 $inputPos = 0;

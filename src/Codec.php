@@ -37,19 +37,30 @@ class Codec
 
     public static function encode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
     {
-        $result = shell_exec('uname -p');
-
-        if (is_string($result)) {
-            $result = trim($result);
-        }
-
-        match ($result) {
+        match (static::getCPUArchitecture()) {
             "x86_64" => x86::encode($iterator, $descriptor, $writer),
-            default => static::phpEncode($iterator, $descriptor, $writer),
+            default => static::doEncode($iterator, $descriptor, $writer),
         };
     }
 
-    private static function phpEncode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
+    public static function decode(iterable $bytes): Context
+    {
+        return match (static::getCPUArchitecture()) {
+            default => static::doDecode($bytes),
+        };
+    }
+
+    private static function getCPUArchitecture(): ?string
+    {
+        $result = shell_exec('uname -p');
+
+        return match(is_string($result)) {
+            true => trim($result),
+            default => null,
+        };
+    }
+
+    private static function doEncode(iterable $iterator, ImageDescriptor $descriptor, Writer $writer): void
     {
         $buffer = \FFI::new("unsigned char[" . static::BUFFER_SIZE . "]");
         $position = 0;
@@ -76,9 +87,18 @@ class Codec
         $length = $descriptor->countPixels();
         $offset = 0;
         $prev = static::initPrevPixel();
+
         $run  = 0;
 
-        foreach ($iterator as $px) {
+        $diffs = \FFI::new("signed char[5]");
+        $px = \FFI::new("unsigned char[4]");
+
+        foreach ($iterator as $i => $pixel) {
+            $px[0] = $pixel[0];
+            $px[1] = $pixel[1];
+            $px[2] = $pixel[2];
+            $px[3] = $pixel[3];
+
             if (static::samePixel($px, $prev)) {
                 $run++;
 
@@ -94,18 +114,24 @@ class Codec
 
                 $indexPos = static::indexPos($px);
 
-                if (static::samePixel($px, $indexes[$indexPos])) {
+                if (static::samePixel($pixel, $indexes[$indexPos])) {
                     $buffer[$position++] = OpCode::INDEX->value | $indexPos;
                 } else {
-                    $indexes[$indexPos] = $px;
+                    $indexes[$indexPos] = $pixel;
 
                     if ($px[3] === $prev[3]) {
-                        $vr = $px[0] - $prev[0];
-                        $vg = $px[1] - $prev[1];
-                        $vb = $px[2] - $prev[2];
+                        $diffs[0] = $px[0] - $prev[0];
+                        $diffs[1] = $px[1] - $prev[1];
+                        $diffs[2] = $px[2] - $prev[2];
+                        $diffs[3] = $diffs[0] - $diffs[1];
+                        $diffs[4] = $diffs[2] - $diffs[1];
 
-                        $vgR = $vr - $vg;
-                        $vgB = $vb - $vg;
+                        $vr = $diffs[0];
+                        $vg = $diffs[1];
+                        $vb = $diffs[2];
+
+                        $vgR = $diffs[3];
+                        $vgB = $diffs[4];
 
                         if (static::isDiff($vr, $vg, $vb)) {
                             $buffer[$position++] = OpCode::DIFF->value | (($vr + 2) << 4) | (($vg + 2) << 2) | ($vb + 2);
@@ -126,9 +152,13 @@ class Codec
                         $buffer[$position++] = $px[3];
                     }
                 }
+
+                $prev[0] = $px[0];
+                $prev[1] = $px[1];
+                $prev[2] = $px[2];
+                $prev[3] = $px[3];
             }
 
-            $prev = $px;
             $offset++;
 
             if ($position + 20 > static::BUFFER_SIZE) {
@@ -154,7 +184,7 @@ class Codec
         $position = 0;
     }
 
-    public static function decode(iterable $bytes): Context
+    protected static function doDecode(iterable $bytes): Context
     {
         $header = array_fill(0, 14, 0x00);
         $read = 0;
@@ -222,103 +252,137 @@ class Codec
             })($bytes),
         };
 
-        $iterator = function($bytes, $descriptor) {
-            $indexes = static::initIndexes();
-            $length = $descriptor->countPixels();
-            $offset = 0;
-            $prev = static::initPrevPixel();
-            $run  = 0;
-            $decoded = 0;
-            $pixel = $prev;
+        return new Context($descriptor, static::decodePixels($bytes, $descriptor));
+    }
 
-            while ($decoded < $length) {
-                if ($run > 0) {
-                    $run--;
+    protected static function decodePixels(\Generator $bytes, ImageDescriptor $descriptor): \Generator
+    {
+        $indexes = static::initIndexes();
+        $length = $descriptor->countPixels();
+        $offset = 0;
+        $run  = 0;
+        $decoded = 0;
+        $prev = static::initPrevPixel();
+
+        $pixel = [0, 0, 0, 255];
+        $truePx = \FFI::new("unsigned char[4]");
+        $truePx[0] = 0;
+        $truePx[1] = 0;
+        $truePx[2] = 0;
+        $truePx[3] = 255;
+
+        while ($decoded < $length) {
+            if ($run > 0) {
+                $run--;
+                $decoded++;
+
+                yield $pixel;
+            } else {
+                $byte = $bytes->current();
+
+                if ($byte === OpCode::RGB->value) {
+                    $bytes->next();
+                    $pixel[0] = $bytes->current();
+
+                    $bytes->next();
+                    $pixel[1] = $bytes->current();
+
+                    $bytes->next();
+                    $pixel[2] = $bytes->current();
+
                     $decoded++;
 
                     yield $pixel;
-                } else {
-                    $byte = $bytes->current();
-
-                    if ($byte === OpCode::RGB->value) {
-                        $bytes->next();
-                        $pixel[0] = $bytes->current();
-
-                        $bytes->next();
-                        $pixel[1] = $bytes->current();
-
-                        $bytes->next();
-                        $pixel[2] = $bytes->current();
-
-                        $decoded++;
-
-                        yield $pixel;
-                    } else if ($byte === OpCode::RGBA->value) {
-                        $bytes->next();
-                        $pixel[0] = $bytes->current();
-
-                        $bytes->next();
-                        $pixel[1] = $bytes->current();
-
-                        $bytes->next();
-                        $pixel[2] = $bytes->current();
-
-                        $bytes->next();
-                        $pixel[3] = $bytes->current();
-
-                        $decoded++;
-
-                        yield $pixel;
-                    } else if (($byte & 0xc0) === OpCode::INDEX->value) {
-                        $pixel = $indexes[$byte];
-
-                        $decoded++;
-
-                        yield $pixel;
-                    } else if (($byte & 0xc0) === OpCode::DIFF->value) {
-                        $vr = (($byte >> 4) & 0x03) -2;
-                        $vg = (($byte >> 2) & 0x03) -2;
-                        $vb = ($byte        & 0x03) -2;
-
-                        $pixel[0] += $vr;
-                        $pixel[1] += $vg;
-                        $pixel[2] += $vb;
-
-                        $decoded++;
-
-                        yield $pixel;
-                    } else if (($byte & 0xc0) === OpCode::LUMA->value) {
-                        $bytes->next();
-                        $second = $bytes->current();
-
-                        $vg = ($byte & 0x3f) - 32;
-
-                        $pixel[0] += $vg - 8 + (($second >> 4) & 0x0f);
-                        $pixel[1] += $vg;
-                        $pixel[2] += $vg - 8 + ($second        & 0x0f);
-
-                        $decoded++;
-
-                        yield $pixel;
-                    } else if (($byte & 0xc0) === OpCode::RUN->value) {
-                        $run = ($byte & 0x3f) + 1;
-                    }
+                } else if ($byte === OpCode::RGBA->value) {
+                    $bytes->next();
+                    $pixel[0] = $bytes->current();
 
                     $bytes->next();
-                    $prev = $pixel;
+                    $pixel[1] = $bytes->current();
 
-                    $indexPos = static::indexPos($pixel);
-                    $indexes[$indexPos] = $pixel;
+                    $bytes->next();
+                    $pixel[2] = $bytes->current();
+
+                    $bytes->next();
+                    $pixel[3] = $bytes->current();
+
+                    $decoded++;
+
+                    yield $pixel;
+                } else if (($byte & 0xc0) === OpCode::INDEX->value) {
+                    $pixel = $indexes[$byte];
+
+                    $decoded++;
+
+                    yield $pixel;
+                } else if (($byte & 0xc0) === OpCode::DIFF->value) {
+                    $truePx[0] = (($byte >> 4) & 0x03) -2;
+                    $truePx[1] = (($byte >> 2) & 0x03) -2;
+                    $truePx[2] = ($byte        & 0x03) -2;
+
+                    $truePx[0] += $pixel[0];
+                    $truePx[1] += $pixel[1];
+                    $truePx[2] += $pixel[2];
+
+                    $pixel[0] = $truePx[0];
+                    $pixel[1] = $truePx[1];
+                    $pixel[2] = $truePx[2];
+
+                    $decoded++;
+
+                    yield $pixel;
+                } else if (($byte & 0xc0) === OpCode::LUMA->value) {
+                    $bytes->next();
+                    $second = $bytes->current();
+
+                    $vg = ($byte & 0x3f) - 32;
+
+                    $truePx[0] = $vg - 8 + (($second >> 4) & 0x0f);
+                    $truePx[1] = $vg;
+                    $truePx[2] = $vg - 8 + ($second        & 0x0f);
+
+                    $truePx[0] += $pixel[0];
+                    $truePx[1] += $pixel[1];
+                    $truePx[2] += $pixel[2];
+
+                    $pixel[0] = $truePx[0];
+                    $pixel[1] = $truePx[1];
+                    $pixel[2] = $truePx[2];
+
+                    $decoded++;
+
+                    yield $pixel;
+                } else if (($byte & 0xc0) === OpCode::RUN->value) {
+                    $run = ($byte & 0x3f) + 1;
                 }
-            }
-        };
 
-        return new Context($descriptor, $iterator($bytes, $descriptor));
+                $bytes->next();
+                $prev[0] = $pixel[0];
+                $prev[1] = $pixel[1];
+                $prev[2] = $pixel[2];
+                $prev[3] = $pixel[3];
+
+                $truePx[0] = $pixel[0];
+                $truePx[1] = $pixel[1];
+                $truePx[2] = $pixel[2];
+                $truePx[3] = $pixel[3];
+
+                $indexPos = static::indexPos($truePx);
+                $indexes[$indexPos] = $pixel;
+            }
+        }
     }
 
-    private static function initPrevPixel(): array
+
+    private static function initPrevPixel(): \FFI\CData
     {
-        return [ 0, 0, 0, 255 ];
+        $pixel = \FFI::new("unsigned char[4]");
+        $pixel[0] = 0;
+        $pixel[1] = 0;
+        $pixel[2] = 0;
+        $pixel[3] = 255;
+
+        return $pixel;
     }
 
     private static function initIndexes(): array
@@ -326,7 +390,7 @@ class Codec
         return array_fill(0, 64, [0, 0, 0, 0]);
     }
 
-    private static function indexPos(array $px): int
+    private static function indexPos(\FFI\CData|array $px): int
     {
         $indexPos = $px[0] * 3;
         $indexPos += $px[1] * 5;
@@ -337,7 +401,7 @@ class Codec
         return $indexPos;
     }
 
-    private static function samePixel(array $px, array $prev): bool
+    private static function samePixel(\FFI\CData|array $px, \FFI\CData|array $prev): bool
     {
         return $px[0] === $prev[0]
             && $px[1] === $prev[1]
